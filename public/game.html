@@ -385,8 +385,8 @@ function makeParent(kind) {
   return { g, legs, arms, up, head, hand, props: {} };
 }
 function prop(p, id) {
-  if (p.propId === id) return; p.propId = id; p.hand.clear(); if (!id) return;
-  const H = p.hand;
+  if (p.propId === id) return; p.propId = id; p.m.hand.clear(); if (!id) return;
+  const H = p.m.hand;
   if (id === 'can') { cyl(.09, .09, .2, M(0x3a8a4a), 0, -.1, .1, 10, H); const s = cyl(.015, .02, .25, M(0x3a8a4a), 0, 0, .25, 6, H); s.rotation.x = 1.0; }
   if (id === 'ladle') { const s = cyl(.012, .012, .4, mats.metal, 0, -.2, .1, 6, H); }
   if (id === 'broom') { cyl(.015, .015, 1.2, mats.wood, 0, -.9, .1, 6, H); box(.3, .15, .06, M(0xc8a050), 0, -1, .1, { parent: H }); }
