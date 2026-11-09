@@ -1,0 +1,606 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Побег пацана: Стелс школьник</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none}
+html,body{margin:0;height:100%;overflow:hidden;background:#000;font-family:"Trebuchet MS",system-ui,sans-serif;color:#f3ead7;touch-action:none}
+canvas{display:block}
+#hud{position:fixed;inset:0;pointer-events:none}
+#status{position:absolute;top:10px;left:10px;font-size:13px;line-height:1.5;background:rgba(15,12,10,.6);padding:8px 12px;border-radius:8px;border:1px solid rgba(255,200,120,.25)}
+#susp{width:160px;height:6px;background:#333;border-radius:3px;margin-top:4px;overflow:hidden}
+#susp>div{height:100%;width:0;background:linear-gradient(90deg,#e8c14b,#e2412f)}
+#prompt{position:absolute;bottom:120px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.65);padding:8px 16px;border-radius:20px;font-size:15px;display:none;white-space:nowrap}
+#msg{position:absolute;top:22%;left:50%;transform:translateX(-50%);font-size:18px;font-weight:bold;text-shadow:0 2px 6px #000;text-align:center;transition:opacity .4s;opacity:0;max-width:90vw}
+#cross{position:absolute;left:50%;top:50%;width:6px;height:6px;margin:-3px;border-radius:50%;background:rgba(255,255,255,.7)}
+#inv{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);display:flex;gap:6px;pointer-events:auto}
+.slot{width:54px;height:54px;border-radius:10px;background:rgba(20,16,12,.75);border:2px solid rgba(255,220,160,.25);display:flex;align-items:center;justify-content:center;font-size:26px;position:relative}
+.slot.sel{border-color:#f0b54a}
+.slot small{position:absolute;top:2px;left:5px;font-size:10px;opacity:.6}
+#help{position:absolute;top:10px;right:10px;font-size:12px;background:rgba(15,12,10,.6);padding:8px 12px;border-radius:8px;line-height:1.5;max-width:270px}
+.ov{position:fixed;inset:0;background:rgba(10,8,6,.88);display:flex;align-items:center;justify-content:center;flex-direction:column;text-align:center;padding:20px;z-index:10}
+.ov h1{font-size:34px;margin:0 0 8px;color:#f0b54a;letter-spacing:1px}
+.ov p{max-width:560px;line-height:1.5;opacity:.9}
+.btn{pointer-events:auto;background:#f0b54a;color:#1d140a;border:0;font-weight:bold;font-size:18px;padding:12px 28px;border-radius:30px;margin:6px;cursor:pointer}
+#note{display:none}
+#note .paper{background:#efe3c3;color:#3a2a17;padding:24px 30px;border-radius:4px;max-width:420px;font-family:Georgia,serif;transform:rotate(-1.5deg);box-shadow:0 10px 40px #000}
+#touch{display:none}
+body.mobile #touch{display:block}
+body.mobile #help,body.mobile #cross{display:none}
+#joy{position:fixed;left:30px;bottom:110px;width:130px;height:130px;border-radius:50%;background:rgba(255,255,255,.08);border:2px solid rgba(255,255,255,.2);pointer-events:none}
+#knob{position:absolute;left:40px;top:40px;width:50px;height:50px;border-radius:50%;background:rgba(240,181,74,.6)}
+.tb{position:fixed;width:62px;height:62px;border-radius:50%;background:rgba(20,16,12,.7);border:2px solid rgba(240,181,74,.6);color:#f3ead7;font-weight:bold;font-size:15px;display:flex;align-items:center;justify-content:center;pointer-events:auto;z-index:5}
+.tb.on{background:rgba(240,181,74,.7);color:#1d140a}
+#mtoggle{position:fixed;bottom:14px;right:10px;font-size:12px;pointer-events:auto;background:rgba(20,16,12,.7);border:1px solid #f0b54a;color:#f3ead7;padding:6px 10px;border-radius:14px;z-index:6}
+</style>
+<script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js"}}</script>
+</head>
+<body>
+<div id="hud">
+  <div id="status"></div>
+  <div id="help"><b>Управление</b><br>WASD — ходить, Shift — бег, C — присесть<br>E — действие, F — фонарик<br>G — бросить будильник, Q — выбросить<br>1–6 — выбрать слот<br><br><b>Пути побега</b><br>🚪 Сейф → главный ключ → дверь<br>🪟 Отвёртка → решётка → простыни<br>🕳️ Фонарик + кусачки → подвал<br>⭐ Снотворное в чай + золотой дневник</div>
+  <div id="cross"></div>
+  <div id="prompt"></div>
+  <div id="msg"></div>
+  <div id="inv"></div>
+</div>
+<div id="touch">
+  <div id="joy"><div id="knob"></div></div>
+  <div class="tb" id="bE" style="right:30px;bottom:200px;width:76px;height:76px;font-size:20px">E</div>
+  <div class="tb" id="bC" style="right:120px;bottom:130px">C</div>
+  <div class="tb" id="bR" style="right:30px;bottom:110px">Бег</div>
+  <div class="tb" id="bF" style="right:120px;bottom:220px">F</div>
+  <div class="tb" id="bG" style="right:200px;bottom:110px;font-size:22px">⏰</div>
+</div>
+<button id="mtoggle">📱 Сенсор</button>
+<div class="ov" id="start">
+  <h1>ПОБЕГ ПАЦАНА</h1>
+  <div style="opacity:.8;margin-bottom:10px">Стелс школьник — часть 2: живой дом</div>
+  <p>Тебя заперли в комнате. Мама и папа живут своей жизнью: варят суп, смотрят телик, поливают цветы. Используй их распорядок, чтобы найти предметы и сбежать. Четыре концовки — найди все.</p>
+  <button class="btn" id="go">Начать</button>
+</div>
+<div class="ov" id="note"><div class="paper"><h2 style="margin-top:0">Дневник</h2><p id="notetext"></p><button class="btn" id="noteok">Закрыть</button></div></div>
+<div class="ov" id="endov" style="display:none"><h1 id="endt"></h1><p id="endp"></p><button class="btn" onclick="location.reload()">Ещё раз</button></div>
+
+<script type="module">
+import * as THREE from 'three';
+const $ = id => document.getElementById(id);
+
+// ================= RENDERER / SCENE =================
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.15;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+document.body.prepend(renderer.domElement);
+const scene = new THREE.Scene();
+const FOG = 0x2d3245;
+scene.background = new THREE.Color(FOG);
+scene.fog = new THREE.Fog(FOG, 7, 42);
+const camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.05, 140);
+camera.rotation.order = 'YXZ';
+scene.add(camera);
+addEventListener('resize', () => { renderer.setSize(innerWidth, innerHeight); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); });
+
+// ================= TEXTURES / MATERIALS =================
+function tex(draw, rx, ry) {
+  const c = document.createElement('canvas'); c.width = c.height = 256;
+  draw(c.getContext('2d'), 256);
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rx, ry); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+const drawWood = (g, s) => { for (let i = 0; i < 8; i++) { g.fillStyle = ['#8a5a34', '#7b4f2e', '#94633b', '#85562f'][i % 4]; g.fillRect(0, i * 32, s, 32); g.fillStyle = 'rgba(0,0,0,.3)'; g.fillRect(0, i * 32 + 30, s, 2); g.fillRect((i * 97) % s, i * 32, 2, 32); } };
+const drawTile = (g, s) => { for (let y = 0; y < 4; y++) for (let x = 0; x < 4; x++) { g.fillStyle = (x + y) % 2 ? '#d9d4c7' : '#8f9aa0'; g.fillRect(x * 64, y * 64, 64, 64); } g.strokeStyle = '#555'; for (let i = 0; i <= 4; i++) { g.strokeRect(0, i * 64, s, 0); g.strokeRect(i * 64, 0, 0, s); } };
+const drawPaper = c1 => (g, s) => { g.fillStyle = c1; g.fillRect(0, 0, s, s); g.fillStyle = 'rgba(255,255,255,.08)'; for (let i = 0; i < 8; i++) g.fillRect(i * 32, 0, 12, s); g.fillStyle = 'rgba(0,0,0,.08)'; for (let i = 0; i < 40; i++) g.fillRect(Math.random() * s, Math.random() * s, 4, 4); };
+const drawGrass = (g, s) => { g.fillStyle = '#3d5a2a'; g.fillRect(0, 0, s, s); for (let i = 0; i < 2500; i++) { g.fillStyle = Math.random() < .5 ? '#4a6b32' : '#30481f'; g.fillRect(Math.random() * s, Math.random() * s, 2, 4); } };
+const drawBrick = (g, s) => { g.fillStyle = '#6b3b2a'; g.fillRect(0, 0, s, s); g.fillStyle = '#8c4c34'; for (let y = 0; y < 8; y++) for (let x = 0; x < 4; x++) g.fillRect(x * 64 + (y % 2) * 32 + 2, y * 32 + 2, 60, 28); };
+const drawAsphalt = (g, s) => { g.fillStyle = '#2a2a2c'; g.fillRect(0, 0, s, s); for (let i = 0; i < 1500; i++) { g.fillStyle = 'rgba(255,255,255,.05)'; g.fillRect(Math.random() * s, Math.random() * s, 2, 2); } g.fillStyle = '#c9b45a'; g.fillRect(0, 124, 120, 8); };
+const M = (c, o = {}) => new THREE.MeshStandardMaterial({ color: c, roughness: .8, ...o });
+const mats = {
+  wallKid: M(0xffffff, { map: tex(drawPaper('#6f8fae'), 3, 1) }),
+  wallLiv: M(0xffffff, { map: tex(drawPaper('#b59a6a'), 3, 1) }),
+  wallHall: M(0xffffff, { map: tex(drawPaper('#8b6f5c'), 3, 1) }),
+  brick: M(0xffffff, { map: tex(drawBrick, 6, 2) }),
+  ceil: M(0xe8e2d6), wood: M(0x7a4a28), darkwood: M(0x4a2e1a), white: M(0xeeeeee), metal: M(0x8a8f96, { metalness: .6, roughness: .4 }),
+  fabricBlue: M(0x2f5d8a), fabricRed: M(0x8a2f3a), fabricGreen: M(0x4e6b3a), black: M(0x111111), glass: M(0x88aacc, { emissive: 0x223355, roughness: .1 }),
+};
+
+// ================= WORLD HELPERS =================
+const solids = [], opaque = [];
+function box(w, h, d, mat, x, y, z, opt = {}) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+  m.position.set(x, y + h / 2, z); m.castShadow = opt.cast !== false; m.receiveShadow = true;
+  (opt.parent || scene).add(m);
+  if (opt.solid || opt.opaque) { const b = { x1: x - w / 2, x2: x + w / 2, z1: z - d / 2, z2: z + d / 2 }; if (opt.solid) solids.push(b); if (opt.opaque) opaque.push(b); m.userData.box = b; }
+  return m;
+}
+function cyl(rt, rb, h, mat, x, y, z, seg = 10, parent = scene) {
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, seg), mat);
+  m.position.set(x, y + h / 2, z); m.castShadow = true; m.receiveShadow = true; parent.add(m); return m;
+}
+function floor(x1, z1, x2, z2, drawFn, scale = 2, y = 0) {
+  const w = x2 - x1, d = z2 - z1;
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), M(0xffffff, { map: tex(drawFn, w / scale, d / scale) }));
+  m.rotation.x = -Math.PI / 2; m.position.set((x1 + x2) / 2, y, (z1 + z2) / 2); m.receiveShadow = true; scene.add(m); return m;
+}
+const H = 2.7, T = 0.2, GAP = 1.4;
+function wallX(z, x1, x2, gaps, mat) {
+  let a = x1; const segs = [];
+  for (const g of gaps) { segs.push([a, g - GAP / 2]); box(GAP, H - 2.1, T, mat, g, 2.1, z); a = g + GAP / 2; }
+  segs.push([a, x2]);
+  for (const [s, e] of segs) if (e - s > .01) box(e - s, H, T, mat, (s + e) / 2, 0, z, { solid: true, opaque: true });
+}
+function wallZ(x, z1, z2, gaps, mat) {
+  let a = z1; const segs = [];
+  for (const g of gaps) { segs.push([a, g - GAP / 2]); box(T, H - 2.1, GAP, mat, x, 2.1, g); a = g + GAP / 2; }
+  segs.push([a, z2]);
+  for (const [s, e] of segs) if (e - s > .01) box(T, H, e - s, mat, x, 0, (s + e) / 2, { solid: true, opaque: true });
+}
+
+// ================= HOUSE =================
+// Floors
+floor(-30, -20, 50, 29, drawGrass, 3, -0.01);
+floor(-30, 29, 50, 37, drawAsphalt, 8, 0.0);
+floor(0, 0, 8, 6, drawWood); floor(8, 0, 12, 6, drawTile, 1); floor(12, 0, 24, 6, drawWood);
+floor(0, 6, 24, 9, drawWood); floor(0, 9, 12, 16, drawWood); floor(12, 9, 24, 16, drawTile, 1);
+floor(5.3, 16, 6.7, 29, (g, s) => { g.fillStyle = '#9a9188'; g.fillRect(0, 0, s, s); g.strokeStyle = '#6d665f'; g.lineWidth = 6; g.strokeRect(0, 0, s, s); }, 1.4, 0.005);
+// Ceiling (does not block the sun's shadow so light still falls through)
+const ceil = new THREE.Mesh(new THREE.PlaneGeometry(24, 16), mats.ceil); ceil.rotation.x = Math.PI / 2; ceil.position.set(12, H, 8); scene.add(ceil);
+// Roof seen from yard
+const roof = new THREE.Mesh(new THREE.ConeGeometry(16, 3, 4), M(0x5a2e22)); roof.rotation.y = Math.PI / 4; roof.scale.set(1, 1, .7); roof.position.set(12, H + 1.5, 8); scene.add(roof);
+// Outer walls
+wallX(0, -0.1, 24.1, [], mats.brick); wallX(16, -0.1, 24.1, [6], mats.brick);
+wallZ(0, 0, 16, [], mats.brick); wallZ(24, 0, 16, [], mats.brick);
+// Interior walls
+wallX(6, 0, 24, [4, 10, 18], mats.wallHall);
+wallZ(8, 0, 6, [], mats.wallKid); wallZ(12, 0, 6, [], mats.wallHall);
+wallX(9, 0, 24, [6, 18], mats.wallLiv);
+wallZ(12, 9, 16, [12.5], mats.wallLiv);
+// Inner wall skins (colour per room)
+box(7.8, H, .02, mats.wallKid, 4, 0, 0.11, { cast: false }); box(.02, H, 5.8, mats.wallKid, .11, 0, 3, { cast: false });
+box(11.8, H, .02, mats.wallLiv, 6, 0, 15.89, { cast: false });
+
+// Doors with pivots
+function makeDoor(x, z, color) {
+  const pivot = new THREE.Group(); pivot.position.set(x - .7, 0, z); scene.add(pivot);
+  const d = box(1.4, 2.1, .08, M(color), .7, 0, 0, { parent: pivot });
+  box(.08, .08, .12, mats.metal, 1.25, 1.0, 0, { parent: pivot });
+  const col = { x1: x - .7, x2: x + .7, z1: z - .1, z2: z + .1 }; solids.push(col); opaque.push(col);
+  return { pivot, col, open: false, x, z, ang: 0 };
+}
+const kidDoor = makeDoor(4, 6, 0xd8c7a8), frontDoor = makeDoor(6, 16, 0x5b2f1d);
+const doors = [kidDoor, frontDoor];
+
+// Windows (decorative glass panes)
+function windowPane(x, z, rotY) { const g = new THREE.Group(); g.position.set(x, 1.1, z); g.rotation.y = rotY; scene.add(g);
+  box(1.3, .9, .05, mats.glass, 0, 0, 0, { parent: g, cast: false }); box(1.4, .08, .15, mats.white, 0, -.05, 0, { parent: g }); box(1.4, .08, .15, mats.white, 0, .9, 0, { parent: g }); return g; }
+windowPane(18, 0, 0); windowPane(4, 0, 0); windowPane(10, 0, 0); windowPane(24, 12, Math.PI / 2); windowPane(2, 16, 0); windowPane(18, 16, 0); windowPane(10, 16, 0);
+windowPane(0.0, 4.2, Math.PI / 2);
+const grate = new THREE.Group(); grate.position.set(.16, 1.1, 4.2); scene.add(grate);
+for (let i = 0; i < 6; i++) cyl(.025, .025, .95, mats.metal, 0, -.02, -.55 + i * .22, 6, grate);
+box(.05, .05, 1.3, mats.metal, 0, .2, 0, { parent: grate }); box(.05, .05, 1.3, mats.metal, 0, .7, 0, { parent: grate });
+
+// ---- Kid room ----
+box(1.1, .45, 2.0, mats.wood, .75, 0, 1.3, { solid: true }); box(1.0, .15, 1.9, mats.fabricBlue, .75, .45, 1.35); box(.8, .12, .35, mats.white, .75, .6, .45);
+box(.5, .55, .45, mats.wood, .5, 0, 2.8, { solid: true });
+box(1.4, .05, .7, mats.wood, 6.8, .72, .55, { solid: true }); for (const dx of [-.65, .65]) box(.06, .72, .6, mats.darkwood, 6.8 + dx, 0, .55);
+box(.4, .15, .55, mats.darkwood, 7.2, .55, .55); box(.6, .9, .5, mats.fabricRed, 6.8, 0, 1.4);
+box(.35, 1.7, 1.4, mats.wood, 7.75, 0, 4.5, { solid: true }); for (const y of [.5, 1.1, 1.6]) box(.4, .04, 1.4, mats.darkwood, 7.7, y, 4.5);
+box(2.5, .01, 1.8, M(0x3d6e5a), 4, 0, 3, { cast: false });
+box(.9, .6, .05, M(0xffffff, { map: tex((g, s) => { g.fillStyle = '#123'; g.fillRect(0, 0, s, s); g.fillStyle = '#e44'; g.font = 'bold 60px sans-serif'; g.fillText('ROCK', 40, 150); }, 1, 1) }), 4, 1.5, .13);
+// ---- Bathroom ----
+box(.45, .4, .6, mats.white, 10, 0, .45, { solid: true }); box(.45, .4, .2, mats.white, 10, .4, .2);
+box(.8, .55, 2, mats.white, 11.45, 0, 3.6, { solid: true }); box(.5, .8, .4, mats.white, 8.4, 0, 2, { solid: true });
+box(.4, .9, .8, M(0xc8c0a8), 8.35, 0, 4.8, { solid: true });
+// ---- Parents bedroom ----
+box(2, .45, 2.2, mats.darkwood, 18, 0, 1.25, { solid: true }); box(1.9, .18, 2.1, mats.fabricRed, 18, .45, 1.3); box(1.6, .12, .35, mats.white, 18, .63, .4);
+box(.5, .55, .45, mats.darkwood, 16.5, 0, .45, { solid: true }); box(.5, .55, .45, mats.darkwood, 19.5, 0, .45, { solid: true });
+box(1.6, 2, .65, mats.wood, 13.2, 0, .45, { solid: true }); box(.7, .7, .6, M(0x40444a, { metalness: .5, roughness: .4 }), 23.5, 0, 4.6, { solid: true });
+cyl(.06, .06, .02, mats.metal, 23.15, .35, 4.6, 12).rotation.z = Math.PI / 2;
+box(2.6, .01, 1.6, M(0x6a4a6a), 18, 0, 3.4, { cast: false });
+// ---- Living ----
+box(1.8, .5, .45, mats.darkwood, 2.5, 0, 9.35, { solid: true });
+const tvScreen = box(1.4, .8, .06, M(0x111111, { emissive: 0x4466aa, emissiveIntensity: .8 }), 2.5, .55, 9.3);
+box(2.4, .45, .95, mats.fabricGreen, 2.5, 0, 12.5, { solid: true }); box(2.4, .5, .2, mats.fabricGreen, 2.5, .45, 12.95); box(.2, .25, .95, mats.fabricGreen, 1.3, .45, 12.5); box(.2, .25, .95, mats.fabricGreen, 3.7, .45, 12.5);
+box(1.0, .4, .55, mats.wood, 2.5, 0, 11.0, { solid: true });
+box(.9, .5, .9, mats.fabricRed, 7.5, 0, 10.0, { solid: true });
+box(.4, 2.0, 1.6, mats.darkwood, 11.65, 0, 14.8, { solid: true }); for (const y of [.5, 1.0, 1.5]) for (let i = 0; i < 6; i++) box(.25, .35, .12, M([0x993333, 0x335599, 0x449944, 0xccaa33][i % 4]), 11.55, y + .02, 14.2 + i * .22);
+box(3.2, .01, 2.2, M(0x7a3a2a), 3, 0, 11.6, { cast: false });
+cyl(.2, .15, .4, M(0x8a5a3a), 10.8, 0, 9.6); const plant = new THREE.Mesh(new THREE.IcosahedronGeometry(.35, 0), M(0x3f7a35)); plant.position.set(10.8, .75, 9.6); plant.castShadow = true; scene.add(plant);
+// ---- Kitchen ----
+box(1.5, .9, .6, M(0xcfc7b2), 14.5, 0, 9.4, { solid: true }); box(.8, .9, .6, M(0x444444), 16, 0, 9.4, { solid: true }); box(1.6, .9, .6, M(0xcfc7b2), 17.6, 0, 9.4, { solid: true });
+cyl(.22, .2, .25, mats.metal, 16, .9, 9.4, 12);
+box(.85, 1.9, .75, mats.white, 23.4, 0, 9.5, { solid: true });
+box(1.6, .05, 1.0, mats.wood, 19, .72, 13, { solid: true }); for (const [dx, dz] of [[-.7, -.4], [.7, -.4], [-.7, .4], [.7, .4]]) box(.06, .72, .06, mats.darkwood, 19 + dx, 0, 13 + dz);
+for (const z of [12.2, 13.8]) { box(.45, .45, .45, mats.wood, 19, 0, z); }
+const mug = cyl(.05, .045, .1, M(0xd0d0ff), 19, .77, 13.2, 10);
+const hatch = box(1.0, .04, 1.0, mats.darkwood, 22.5, 0, 14.5, { cast: false });
+const chain = box(1.1, .06, .08, mats.metal, 22.5, .04, 14.5);
+// ---- Hallway ----
+box(.3, 1.8, .3, mats.darkwood, 23.6, 0, 7.5, { solid: true });
+for (const x of [2, 8, 14, 21]) box(.6, .45, .03, M([0x8a6a3a, 0x3a5a7a, 0x7a3a3a, 0x5a7a4a][x % 4]), x, 1.4, 6.12);
+
+// ---- Yard & street ----
+for (let x = -4; x <= 28; x += 1.2) { if (Math.abs(x - 6) < 1) continue; box(.1, .9, .1, mats.white, x, 0, 28.6); }
+box(32, .08, .06, mats.white, 12, .7, 28.6);
+box(4.4, .25, 1.4, M(0x4a2e1a), 14, 0, 21.4);
+const flowerCols = [0xe84b6a, 0xf2c94c, 0xffffff, 0xb05ae0];
+for (let i = 0; i < 14; i++) { const fx = 12.1 + (i % 7) * .62, fz = 21.0 + Math.floor(i / 7) * .7; cyl(.015, .015, .3, M(0x2e6b2a), fx, .25, fz, 5); const f = new THREE.Mesh(new THREE.IcosahedronGeometry(.08, 0), M(flowerCols[i % 4])); f.position.set(fx, .6, fz); scene.add(f); }
+function tree(x, z, s = 1) { cyl(.18 * s, .25 * s, 2 * s, M(0x5a3a22), x, 0, z, 7); const c = new THREE.Mesh(new THREE.IcosahedronGeometry(1.4 * s, 0), M(0x2f5a2a)); c.position.set(x, 2.6 * s, z); c.castShadow = true; scene.add(c); }
+tree(-3, 21, 1.2); tree(25, 24); tree(20, 19, .8); tree(-6, 5, 1.3); tree(30, 8, 1.1);
+box(.15, 1, .15, mats.darkwood, 8, 0, 28); box(.4, .3, .5, M(0x3355aa), 8, 1, 28);
+for (const [x, z, c] of [[-14, 42, 0xa08060], [8, 43, 0x708090], [30, 42, 0x9a6a5a]]) { box(9, 5, 7, M(c), x, 0, z); const w = box(1.2, 1, .05, M(0xffd890, { emissive: 0xffaa44, emissiveIntensity: 1 }), x, 2.2, z - 3.53, { cast: false }); }
+for (const x of [0, 20]) { cyl(.06, .08, 4.5, mats.metal, x, 0, 29.4, 6); const l = new THREE.PointLight(0xffc070, 8, 12, 2); l.position.set(x, 4.3, 29.4); scene.add(l); box(.4, .15, .4, M(0xffe0a0, { emissive: 0xffc070, emissiveIntensity: 2 }), x, 4.35, 29.4, { cast: false }); }
+
+// ================= LIGHTING =================
+scene.add(new THREE.HemisphereLight(0x8899cc, 0x332211, .45));
+const sun = new THREE.DirectionalLight(0xffb07a, 1.6);
+sun.position.set(-14, 16, 26); sun.target.position.set(12, 0, 10); scene.add(sun.target);
+sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left: -26, right: 26, top: 26, bottom: -26, near: 1, far: 80 });
+sun.shadow.bias = -.0005; sun.shadow.normalBias = .03; scene.add(sun);
+function lamp(x, z, color, intensity, shadow) {
+  const l = new THREE.PointLight(color, intensity, 11, 1.6); l.position.set(x, 2.35, z);
+  if (shadow) { l.castShadow = true; l.shadow.mapSize.set(512, 512); l.shadow.bias = -.002; }
+  scene.add(l); cyl(.18, .28, .22, M(0xfff2d0, { emissive: color, emissiveIntensity: 1.5 }), x, 2.4, z, 10).castShadow = false;
+  return l;
+}
+lamp(4, 3, 0xffd9a0, 6, false); lamp(10, 3, 0xe0f0ff, 3, false); lamp(18, 3, 0xffc890, 5, false);
+lamp(12, 7.5, 0xffb070, 1.6, false); lamp(5, 12.5, 0xffd090, 8, true); lamp(18.5, 12.5, 0xfff0d0, 8, true);
+const tvLight = new THREE.PointLight(0x6688ff, 2, 6, 2); tvLight.position.set(2.5, 1, 9.8); scene.add(tvLight);
+const flash = new THREE.SpotLight(0xfff4d0, 0, 18, .45, .4, 1.2); flash.position.set(.15, -.15, 0); camera.add(flash); flash.target.position.set(0, 0, -1); camera.add(flash.target);
+
+// ================= ITEMS / INVENTORY =================
+const ITEMS = {
+  diary: { n: 'Дневник', i: '📔', note: true }, kidkey: { n: 'Ключ от детской', i: '🗝️' }, pin: { n: 'Шпилька', i: '📎' },
+  screw: { n: 'Отвёртка', i: '🪛' }, cutters: { n: 'Кусачки', i: '✂️' }, mainkey: { n: 'Главный ключ', i: '🔑' },
+  flash: { n: 'Фонарик', i: '🔦' }, alarm: { n: 'Будильник', i: '⏰' }, pills: { n: 'Снотворное', i: '💊' },
+  rope: { n: 'Простыни', i: '🧶' }, gold: { n: 'Золотой дневник', i: '📒' },
+};
+const ITEM_COL = { diary: 0x6a3a1a, kidkey: 0xc0a040, pin: 0xcccccc, screw: 0xd04030, cutters: 0xd02020, mainkey: 0xffd040, flash: 0x333333, alarm: 0xe04040, pills: 0xffffff, rope: 0xe8e0d0, gold: 0xffc020 };
+function itemMesh(id) {
+  const g = new THREE.Group(), m = M(ITEM_COL[id], { emissive: ITEM_COL[id], emissiveIntensity: .25, metalness: id === 'gold' || id === 'mainkey' ? .7 : 0 });
+  if (id === 'flash' || id === 'screw') { const c = cyl(.035, .035, .25, m, 0, 0, 0, 8, g); c.rotation.z = Math.PI / 2; }
+  else if (id === 'alarm') { cyl(.08, .08, .06, m, 0, 0, 0, 12, g).rotation.x = Math.PI / 2; }
+  else if (id === 'rope') box(.4, .12, .3, m, 0, 0, 0, { parent: g });
+  else if (id === 'pills') cyl(.04, .04, .1, m, 0, 0, 0, 8, g);
+  else if (id === 'diary' || id === 'gold') box(.22, .05, .3, m, 0, 0, 0, { parent: g });
+  else box(.2, .03, .06, m, 0, 0, 0, { parent: g });
+  return g;
+}
+const inv = []; let sel = 0; const CAP = 6;
+const has = id => inv.includes(id);
+function removeItem(id) { const k = inv.indexOf(id); if (k >= 0) inv.splice(k, 1); if (sel >= inv.length) sel = Math.max(0, inv.length - 1); drawInv(); }
+function drawInv() {
+  $('inv').innerHTML = '';
+  for (let k = 0; k < CAP; k++) { const d = document.createElement('div'); d.className = 'slot' + (k === sel && inv[k] ? ' sel' : ''); d.innerHTML = `<small>${k + 1}</small>${inv[k] ? ITEMS[inv[k]].i : ''}`; d.title = inv[k] ? ITEMS[inv[k]].n : ''; d.onpointerdown = e => { e.stopPropagation(); sel = k; drawInv(); if (inv[k]) toast(ITEMS[inv[k]].n); }; $('inv').appendChild(d); }
+}
+
+// ================= INTERACTABLES =================
+const inter = [];
+const addI = (x, z, label, act) => { const o = { x, z, label, act }; inter.push(o); return o; };
+function spawnItem(id, x, y, z, mesh) {
+  const m = mesh || itemMesh(id); m.position.set(x, y + .03, z); if (!mesh) scene.add(m);
+  const o = addI(x, z, () => `E — взять: ${ITEMS[id].n}`, () => {
+    if (ITEMS[id].note) { codeKnown = true; showNote(); }
+    else { if (inv.length >= CAP) return toast('Инвентарь полон (Q — выбросить)'); inv.push(id); sel = inv.length - 1; drawInv(); toast('Подобрано: ' + ITEMS[id].n); }
+    scene.remove(m); inter.splice(inter.indexOf(o), 1);
+  });
+  o.mesh = m; return o;
+}
+function lockedBox(x, z, what, spawnAt, itemId) {
+  let locked = true;
+  const o = addI(x, z, () => locked ? (has('pin') ? `E — вскрыть ${what} шпилькой` : `${what[0].toUpperCase() + what.slice(1)} заперт(а). Нужна отмычка`) : null,
+    () => { if (!locked || !has('pin')) return; locked = false; toast('Щёлк! Открыто'); beep(1400, .05); spawnItem(itemId, ...spawnAt); });
+  return o;
+}
+const SAFE_CODE = String(1000 + Math.floor(Math.random() * 9000));
+let codeKnown = false, kidUnlocked = false, grateOff = false, chainCut = false, mugSpiked = false, safeOpen = false, underBed = false, flashOn = false;
+
+spawnItem('diary', 6.5, .77, .5);
+spawnItem('pin', 7.6, 1.14, 4.3);
+spawnItem('alarm', .5, .55, 2.8);
+spawnItem('rope', .75, .6, 1.9);
+spawnItem('gold', 11.4, 2.0, 14.8);
+lockedBox(7.2, .9, 'ящик стола', [7.0, .77, .6], 'kidkey');
+lockedBox(8.6, 4.8, 'шкафчик', [8.35, .9, 4.8], 'screw');
+lockedBox(16.5, .8, 'тумбочку', [16.5, .55, .45], 'pills');
+lockedBox(14.5, 9.9, 'кухонный ящик', [14.5, .9, 9.4], 'flash');
+addI(4, 6, () => kidUnlocked ? null : has('kidkey') ? 'E — отпереть дверь ключом' : 'Дверь заперта снаружи. Нужен ключ', () => {
+  if (kidUnlocked || !has('kidkey')) return; kidUnlocked = true; kidDoor.col.off = true; kidDoor.open = true; removeItem('kidkey'); toast('Дверь открыта. Тише!'); });
+addI(.5, 4.2, () => !grateOff ? (has('screw') ? 'E — открутить решётку отвёрткой' : 'Решётка на окне прикручена. Нужна отвёртка') : (has('rope') ? 'E — привязать простыни и спуститься' : 'Окно открыто. Нужна верёвка или простыни'), () => {
+  if (!grateOff && has('screw')) { grateOff = true; scene.remove(grate); removeItem('screw'); toast('Решётка снята!'); beep(600, .1); }
+  else if (grateOff && has('rope')) ending('window'); });
+addI(18, 2.6, () => underBed ? null : 'E — заглянуть под кровать', () => { underBed = true; spawnItem('cutters', 18, .02, 2.75); toast('Под кроватью что-то лежит…'); });
+addI(23.1, 4.6, () => safeOpen ? null : codeKnown ? `E — ввести код ${SAFE_CODE}` : 'Сейф. Нужен код', () => { if (!codeKnown || safeOpen) return; safeOpen = true; toast('Сейф открыт!'); beep(900, .2); spawnItem('mainkey', 23.5, .7, 4.6); });
+addI(19, 13.2, () => mugSpiked ? null : has('pills') ? 'E — подсыпать снотворное в папин чай' : 'Кружка папиного чая', () => { if (!has('pills') || mugSpiked) return; mugSpiked = true; removeItem('pills'); toast('Снотворное в чае. Ждём, когда папа сядет читать газету'); });
+addI(22.5, 14.5, () => !chainCut ? (has('cutters') ? 'E — перекусить цепь кусачками' : 'Люк в подвал на цепи. Нужны кусачки') : (has('flash') && flashOn ? 'E — спуститься в подвал' : 'В подвале темно — нужен включённый фонарик (F)'), () => {
+  if (!chainCut && has('cutters')) { chainCut = true; scene.remove(chain); removeItem('cutters'); hatch.rotation.x = -1.2; hatch.position.z -= .3; hatch.position.y = .4; toast('Цепь перекушена!'); beep(300, .15); }
+  else if (chainCut && has('flash') && flashOn) ending('basement'); });
+addI(6, 15.9, () => has('mainkey') ? (has('gold') && anyAsleep() ? 'E — тихо выйти с золотым дневником ⭐' : 'E — открыть парадную дверь') : 'Парадная дверь заперта. Ключ — у родителей', () => {
+  if (!has('mainkey')) return; ending(has('gold') && anyAsleep() ? 'secret' : 'main'); });
+
+// ================= NAV GRAPH =================
+const NODES = { KID: [4, 3], H4: [4, 7.5], H6: [6, 7.5], H10: [10, 7.5], H18: [18, 7.5], BATH: [10, 3.5], TOILET: [10, 1.05], PBED: [18, 3.4], LIV: [6, 12], SOFA: [2.5, 12.15], CLEAN: [7.5, 13.5], FRONT: [6, 15.2], OUT: [6, 17.5], GARDEN: [14, 20.3], LK: [12, 12.5], KIT: [17.5, 11.5], STOVE: [16, 10.2], TABLE: [19, 13.85] };
+const EDGES = [['KID', 'H4'], ['H4', 'H6'], ['H6', 'H10'], ['H10', 'H18'], ['H10', 'BATH'], ['BATH', 'TOILET'], ['H18', 'PBED'], ['H6', 'LIV'], ['H18', 'KIT'], ['LIV', 'SOFA'], ['LIV', 'CLEAN'], ['LIV', 'FRONT'], ['LIV', 'LK'], ['LK', 'KIT'], ['KIT', 'STOVE'], ['KIT', 'TABLE'], ['FRONT', 'OUT'], ['OUT', 'GARDEN']];
+const ADJ = {}; for (const k in NODES) ADJ[k] = []; for (const [a, b] of EDGES) { ADJ[a].push(b); ADJ[b].push(a); }
+function segHit(x1, z1, x2, z2, b) {
+  let t0 = 0, t1 = 1; const dx = x2 - x1, dz = z2 - z1;
+  for (const [p, d, mn, mx] of [[x1, dx, b.x1, b.x2], [z1, dz, b.z1, b.z2]]) {
+    if (Math.abs(d) < 1e-9) { if (p < mn || p > mx) return false; }
+    else { let ta = (mn - p) / d, tb = (mx - p) / d; if (ta > tb) [ta, tb] = [tb, ta]; t0 = Math.max(t0, ta); t1 = Math.min(t1, tb); if (t0 > t1) return false; }
+  }
+  return true;
+}
+const los = (x1, z1, x2, z2, doorsBlock) => { for (const b of opaque) { if (b.off) continue; if (!doorsBlock && doors.some(d => d.col === b)) continue; if (segHit(x1, z1, x2, z2, b)) return false; } return true; };
+function nearestNode(x, z) { let best = null, bd = 1e9; for (const k in NODES) { const [nx, nz] = NODES[k]; const d = Math.hypot(nx - x, nz - z) + (los(x, z, nx, nz, false) ? 0 : 100); if (d < bd) { bd = d; best = k; } } return best; }
+function pathTo(x, z, tx, tz) {
+  if (los(x, z, tx, tz, false) && Math.hypot(tx - x, tz - z) < 6) return [[tx, tz]];
+  const a = nearestNode(x, z), b = nearestNode(tx, tz); const prev = { [a]: null }, q = [a];
+  while (q.length) { const c = q.shift(); if (c === b) break; for (const n of ADJ[c]) if (!(n in prev)) { prev[n] = c; q.push(n); } }
+  const pts = []; for (let c = b; c; c = prev[c]) pts.unshift(NODES[c]); pts.push([tx, tz]); return pts;
+}
+
+// ================= PARENTS =================
+const skin = M(0xe2b48c);
+function makeParent(kind) {
+  const g = new THREE.Group(); scene.add(g);
+  const pants = M(kind === 'dad' ? 0x3a3f4a : 0x6b4a3a), shoe = M(0x1e1a18);
+  const legs = [];
+  for (const s of [-1, 1]) { const p = new THREE.Group(); p.position.set(s * .12, .9, 0); g.add(p); box(.16, .82, .18, kind === 'mom' ? skin : pants, 0, -.85, 0, { parent: p }); box(.18, .1, .3, shoe, 0, -.9, .05, { parent: p }); legs.push(p); }
+  if (kind === 'mom') { const dress = cyl(.2, .4, .75, M(0xa8345a), 0, .45, 0, 12, g); }
+  const up = new THREE.Group(); up.position.y = .9; g.add(up);
+  if (kind === 'dad') {
+    box(.58, .64, .34, M(0x3c6ea6), 0, 0, 0, { parent: up });
+    for (let i = 0; i < 3; i++) box(.585, .03, .345, M(0x22446a), 0, .12 + i * .2, 0, { parent: up });
+    const belly = new THREE.Mesh(new THREE.SphereGeometry(.24, 10, 8), M(0x3c6ea6)); belly.position.set(0, .2, .1); belly.castShadow = true; up.add(belly);
+    box(.6, .07, .36, M(0x2a1a10), 0, .02, 0, { parent: up }); box(.08, .06, .02, mats.metal, 0, .02, .19, { parent: up });
+  } else {
+    box(.42, .5, .26, M(0xa8345a), 0, 0, 0, { parent: up });
+    box(.34, .62, .02, M(0xf4efe4), 0, -.2, .15, { parent: up }); box(.12, .1, .02, M(0xe84b6a), 0, -.05, .165, { parent: up });
+  }
+  cyl(.06, .07, .1, skin, 0, .62, 0, 8, up);
+  const head = new THREE.Group(); head.position.y = .82; up.add(head);
+  const hm = new THREE.Mesh(new THREE.IcosahedronGeometry(.17, 1), skin); hm.castShadow = true; head.add(hm);
+  for (const s of [-1, 1]) { box(.04, .04, .02, mats.black, s * .06, .02, .155, { parent: head }); }
+  box(.04, .06, .05, skin, 0, -.04, .17, { parent: head });
+  if (kind === 'dad') {
+    const hair = new THREE.Mesh(new THREE.SphereGeometry(.175, 10, 6, 0, Math.PI * 2, 0, 1.2), M(0x3a2a1c)); hair.rotation.x = -.5; hair.position.y = .01; head.add(hair);
+    box(.12, .03, .03, M(0x3a2a1c), 0, -.08, .16, { parent: head });
+    for (const s of [-1, 1]) { const gl = new THREE.Mesh(new THREE.TorusGeometry(.035, .008, 4, 10), mats.black); gl.position.set(s * .06, .03, .165); head.add(gl); }
+    box(.14, .006, .006, mats.black, 0, .04, .166, { parent: head });
+  } else {
+    const hair = new THREE.Mesh(new THREE.SphereGeometry(.185, 10, 8, 0, Math.PI * 2, 0, 1.6), M(0x7a3a1a)); hair.rotation.x = -.6; head.add(hair);
+    const bun = new THREE.Mesh(new THREE.SphereGeometry(.09, 8, 6), M(0x7a3a1a)); bun.position.set(0, .12, -.14); head.add(bun);
+    for (const s of [-1, 1]) { const e = new THREE.Mesh(new THREE.SphereGeometry(.02, 6, 4), M(0xffd040, { metalness: .8 })); e.position.set(s * .16, -.06, 0); head.add(e); }
+  }
+  const arms = [];
+  const sleeve = kind === 'dad' ? M(0x3c6ea6) : M(0xa8345a), sw = kind === 'dad' ? .34 : .27;
+  for (const s of [-1, 1]) { const p = new THREE.Group(); p.position.set(s * sw, .55, 0); up.add(p); box(.13, .32, .14, sleeve, 0, -.3, 0, { parent: p }); box(.11, .3, .12, skin, 0, -.58, 0, { parent: p }); const h = new THREE.Mesh(new THREE.SphereGeometry(.065, 6, 5), skin); h.position.y = -.64; p.add(h); arms.push(p); }
+  const hand = new THREE.Group(); hand.position.set(0, -.66, .05); arms[1].add(hand);
+  return { g, legs, arms, up, head, hand, props: {} };
+}
+function prop(p, id) {
+  if (p.propId === id) return; p.propId = id; p.hand.clear(); if (!id) return;
+  const H = p.hand;
+  if (id === 'can') { cyl(.09, .09, .2, M(0x3a8a4a), 0, -.1, .1, 10, H); const s = cyl(.015, .02, .25, M(0x3a8a4a), 0, 0, .25, 6, H); s.rotation.x = 1.0; }
+  if (id === 'ladle') { const s = cyl(.012, .012, .4, mats.metal, 0, -.2, .1, 6, H); }
+  if (id === 'broom') { cyl(.015, .015, 1.2, mats.wood, 0, -.9, .1, 6, H); box(.3, .15, .06, M(0xc8a050), 0, -1, .1, { parent: H }); }
+  if (id === 'paper') box(.5, .35, .01, M(0xe8e4d8), 0, .05, .25, { parent: H });
+  if (id === 'remote') box(.04, .03, .14, mats.black, 0, 0, .05, { parent: H });
+}
+
+const parents = [
+  { id: 'mom', name: '👩 Мама', m: makeParent('mom'), x: 16, z: 10.2, h: Math.PI, idx: 0, acts: [
+    { n: 'STOVE', dur: 24, label: 'варит суп на кухне', face: Math.PI, prop: 'ladle', anim: 'stir', att: .7 },
+    { n: 'CLEAN', dur: 18, label: 'убирается в гостиной', prop: 'broom', anim: 'sweep', att: .9 },
+    { n: 'KID', dur: 5, label: 'идёт проверить твою комнату!', check: true, att: 1 },
+    { n: 'GARDEN', dur: 30, label: 'поливает цветы во дворе', face: 0, prop: 'can', anim: 'water', att: .5 },
+  ] },
+  { id: 'dad', name: '👨 Папа', m: makeParent('dad'), x: 2.5, z: 12.15, h: Math.PI, idx: 0, acts: [
+    { n: 'SOFA', dur: 36, label: 'смотрит телик на диване', face: Math.PI, pose: 'sit', prop: 'remote', att: .45 },
+    { n: 'TABLE', dur: 22, label: 'читает газету и пьёт чай', face: Math.PI, pose: 'sit', prop: 'paper', anim: 'read', tea: true, att: .55 },
+    { n: 'TOILET', dur: 14, label: 'в туалете', face: 0, pose: 'sit', att: .2 },
+  ] },
+];
+for (const p of parents) Object.assign(p, { phase: 'do', timer: p.acts[0].dur, path: [], susp: 0, asleep: false, walk: 0, drank: false, th: p.h });
+const anyAsleep = () => parents.some(p => p.asleep);
+function startAct(p) {
+  const a = p.acts[p.idx]; p.phase = 'walk'; p.drank = false;
+  const [tx, tz] = NODES[a.n]; p.path = pathTo(p.x, p.z, tx, tz);
+  if (a.check) toast('⚠️ Мама идёт проверить твою комнату!');
+}
+function investigate(p, x, z, why) {
+  if (p.asleep) return; if (p.phase === 'investigate' && Math.hypot(p.ix - x, p.iz - z) < 1.5) return;
+  p.phase = 'investigate'; p.ix = x; p.iz = z; p.path = pathTo(p.x, p.z, x, z); if (why) toast(why);
+}
+function follow(p, dt, spd) {
+  while (p.path.length) {
+    const [tx, tz] = p.path[0]; const dx = tx - p.x, dz = tz - p.z, d = Math.hypot(dx, dz);
+    if (d < .1) { p.path.shift(); continue; }
+    const s = Math.min(d, spd * dt); p.x += dx / d * s; p.z += dz / d * s; p.th = Math.atan2(dx, dz); p.moving = true; return false;
+  }
+  return true;
+}
+function updateParent(p, dt) {
+  p.moving = false; const a = p.acts[p.idx];
+  if (p.asleep) { p.pose = 'sleep'; return; }
+  if (p.phase === 'walk') { if (follow(p, dt, 1.5)) { p.phase = 'do'; p.timer = a.dur; if (a.face !== undefined) p.th = a.face;
+      if (a.check && !inKidRoom()) { investigate(p, player.x, player.z, 'Мама: «Где он?! Найду — накажу!»'); parents[1].asleep || investigate(parents[1], player.x, player.z); } } }
+  else if (p.phase === 'do') {
+    p.timer -= dt;
+    if (a.n === 'CLEAN') p.th += Math.sin(performance.now() / 900) * dt;
+    if (a.tea && !p.drank && a.dur - p.timer > 3) { p.drank = true; if (mugSpiked) { p.asleep = true; toast('😴 Папа выпил чай и уснул!'); return; } }
+    if (p.timer <= 0) { p.idx = (p.idx + 1) % p.acts.length; startAct(p); }
+  } else if (p.phase === 'investigate') { if (follow(p, dt, 2.4)) { p.phase = 'look'; p.timer = 4; } }
+  else if (p.phase === 'look') { p.timer -= dt; p.th += dt * 1.6; if (p.timer <= 0) startAct(p); }
+  p.pose = (p.phase === 'do' && a.pose === 'sit') ? 'sit' : 'stand';
+}
+function animParent(p, dt) {
+  const m = p.m; m.g.position.set(p.x, 0, p.z);
+  let d = p.th - p.h; d = Math.atan2(Math.sin(d), Math.cos(d)); p.h += d * Math.min(1, dt * 6); m.g.rotation.y = p.h;
+  const a = p.acts[p.idx], t = performance.now() / 1000;
+  if (p.moving) p.walk += dt * 7;
+  const sw = p.moving ? Math.sin(p.walk) * .55 : 0;
+  m.legs[0].rotation.x = sw; m.legs[1].rotation.x = -sw; m.arms[0].rotation.x = -sw * .8; m.arms[1].rotation.x = sw * .8;
+  m.up.rotation.x = 0; m.head.rotation.x = 0; m.g.position.y = 0;
+  const doing = p.phase === 'do';
+  if (p.pose === 'sit' || p.pose === 'sleep') { m.legs[0].rotation.x = m.legs[1].rotation.x = -Math.PI / 2; m.g.position.y = -.42; }
+  if (p.pose === 'sleep') { m.up.rotation.x = .35; m.head.rotation.x = .7; m.arms[0].rotation.x = m.arms[1].rotation.x = -.3; prop(p, null); return; }
+  prop(p, doing ? a.prop : (p.phase === 'walk' ? a.prop : null));
+  if (doing && a.anim === 'stir') m.arms[1].rotation.x = -1.1 + Math.sin(t * 5) * .15;
+  if (doing && a.anim === 'water') { m.arms[1].rotation.x = -1.2; m.arms[1].rotation.z = Math.sin(t * 2) * .1; }
+  if (doing && a.anim === 'sweep') m.arms[1].rotation.x = -.4 + Math.sin(t * 4) * .4;
+  if (doing && a.anim === 'read') { m.arms[0].rotation.x = m.arms[1].rotation.x = -1.2; }
+  if (p.phase === 'look') m.head.rotation.y = Math.sin(t * 2) * .6; else m.head.rotation.y = 0;
+}
+
+// ================= PLAYER =================
+const player = { x: 4, z: 2.5, yaw: Math.PI, pitch: 0, crouch: false, run: false, eye: 1.6 };
+const R = .28, keys = {};
+function blocked(x, z) { for (const b of solids) { if (b.off) continue; const cx = Math.max(b.x1, Math.min(x, b.x2)), cz = Math.max(b.z1, Math.min(z, b.z2)); if ((x - cx) ** 2 + (z - cz) ** 2 < R * R) return true; } return false; }
+const inKidRoom = () => player.x < 8 && player.z < 6;
+let joy = { x: 0, y: 0 };
+
+// ================= SOUND =================
+let ac = null;
+function beep(f, dur, vol = .08) { try { ac = ac || new AudioContext(); const o = ac.createOscillator(), g = ac.createGain(); o.frequency.value = f; o.type = 'square'; g.gain.value = vol; o.connect(g).connect(ac.destination); o.start(); g.gain.exponentialRampToValueAtTime(.0001, ac.currentTime + dur); o.stop(ac.currentTime + dur); } catch (e) {} }
+
+// ================= ALARM THROW =================
+let thrown = null;
+function throwAlarm() {
+  if (!has('alarm')) return toast('Нет будильника'); removeItem('alarm');
+  const m = itemMesh('alarm'), f = new THREE.Vector3(); camera.getWorldDirection(f);
+  m.position.copy(camera.position).addScaledVector(f, .4); scene.add(m);
+  thrown = { m, v: f.multiplyScalar(7).add(new THREE.Vector3(0, 2.2, 0)), landed: false, t: 0 }; toast('Будильник заведён и брошен!');
+}
+function updateAlarm(dt) {
+  if (!thrown) return; const T = thrown, p = T.m.position;
+  if (!T.landed) { T.v.y -= 12 * dt; const nx = p.x + T.v.x * dt, nz = p.z + T.v.z * dt;
+    if (blocked(nx, nz)) { T.v.x *= -.3; T.v.z *= -.3; } else { p.x = nx; p.z = nz; }
+    p.y += T.v.y * dt; T.m.rotation.x += dt * 8; if (p.y <= .06) { p.y = .06; T.landed = true; T.t = 0; } return; }
+  T.t += dt;
+  if (T.t > 1.2 && T.t < 6) { if (Math.floor(T.t * 6) !== T.lastB) { T.lastB = Math.floor(T.t * 6); if (T.lastB % 2) beep(2200, .08, .05); }
+    T.m.rotation.z = Math.sin(T.t * 60) * .2;
+    if (!T.alerted) { T.alerted = true; for (const pa of parents) if (!pa.asleep && Math.hypot(pa.x - p.x, pa.z - p.z) < 16) investigate(pa, p.x, p.z); toast('⏰ ДЗЫНЬ! Родители идут на звук'); } }
+  if (T.t >= 6) { spawnItem('alarm', p.x, p.y - .03, p.z, T.m); thrown = null; }
+}
+
+// ================= UI =================
+let msgT = 0;
+function toast(s) { $('msg').textContent = s; $('msg').style.opacity = 1; msgT = 3; }
+function showNote() { $('notetext').innerHTML = `«…Мама опять поменяла код от сейфа в спальне. Я подсмотрел: <b style="font-size:24px">${SAFE_CODE}</b>. Там лежит ключ от входной двери.<br><br>Папа каждый вечер пьёт чай за газетой на кухне — если бы он уснул… А на книжной полке в зале спрятан какой-то золотой дневник.»`; $('note').style.display = 'flex'; paused = true; document.exitPointerLock?.(); }
+$('noteok').onclick = () => { $('note').style.display = 'none'; paused = false; drawInv(); };
+const ENDINGS = {
+  main: ['🚪 Побег через главную дверь', 'Код от сейфа, главный ключ и тихий щелчок замка. Свобода пахнет вечерним воздухом.'],
+  window: ['🪟 Побег через окно', 'Решётка снята, простыни связаны узлом. Ты спустился по стене, пока родители ничего не подозревали.'],
+  basement: ['🕳️ Побег через подвал', 'Цепь перекушена, фонарик освещает сырой подвал. Через угольное окошко ты выбрался на улицу.'],
+  secret: ['⭐ Секретная концовка', 'Папа спит над газетой, а у тебя золотой дневник с семейными тайнами. Ты вышел через парадную дверь как хозяин дома.'],
+};
+let state = 'menu', paused = false;
+function ending(k) { state = 'end'; document.exitPointerLock?.(); $('endt').textContent = ENDINGS[k][0]; $('endp').textContent = ENDINGS[k][1] + ' (концовка ' + (Object.keys(ENDINGS).indexOf(k) + 1) + ' из 4)'; $('endov').style.display = 'flex'; beep(660, .3); }
+function lose(why) { if (state !== 'play') return; state = 'end'; document.exitPointerLock?.(); $('endt').textContent = '😱 Попался!'; $('endp').textContent = why; $('endov').style.display = 'flex'; beep(150, .6, .15); }
+
+// ================= INPUT =================
+let mobile = matchMedia('(pointer:coarse)').matches || 'ontouchstart' in window;
+const setMobile = v => { mobile = v; document.body.classList.toggle('mobile', v); $('mtoggle').textContent = v ? '🖥 Клавиатура' : '📱 Сенсор'; };
+setMobile(mobile);
+$('mtoggle').onclick = e => { e.stopPropagation(); setMobile(!mobile); };
+$('go').onclick = () => { $('start').style.display = 'none'; state = 'play'; drawInv(); if (!mobile) renderer.domElement.requestPointerLock(); toast('Найди способ выбраться. Начни со стола и полки.'); };
+renderer.domElement.addEventListener('click', () => { if (state === 'play' && !mobile && !paused) renderer.domElement.requestPointerLock(); });
+addEventListener('mousemove', e => { if (document.pointerLockElement !== renderer.domElement) return; player.yaw -= e.movementX * .0022; player.pitch = Math.max(-1.4, Math.min(1.4, player.pitch - e.movementY * .0022)); });
+function doInteract() { if (state === 'play' && !paused && target) target.act(); }
+function toggleFlash() { if (!has('flash')) return toast('Нет фонарика'); flashOn = !flashOn; flash.intensity = flashOn ? 30 : 0; $('bF').classList.toggle('on', flashOn); beep(1000, .03); }
+function toggleCrouch() { player.crouch = !player.crouch; $('bC').classList.toggle('on', player.crouch); }
+function dropSel() { const id = inv[sel]; if (!id) return; removeItem(id); const f = fwdXZ(); spawnItem(id, player.x + f[0] * .6, 0, player.z + f[1] * .6); toast('Выброшено: ' + ITEMS[id].n); }
+addEventListener('keydown', e => {
+  keys[e.code] = true; if (state !== 'play' || paused) return;
+  if (e.code === 'KeyE') doInteract(); if (e.code === 'KeyF') toggleFlash(); if (e.code === 'KeyC' || e.code === 'ControlLeft') toggleCrouch();
+  if (e.code === 'KeyG') throwAlarm(); if (e.code === 'KeyQ') dropSel();
+  if (/^Digit[1-6]$/.test(e.code)) { sel = +e.code.slice(5) - 1; drawInv(); }
+});
+addEventListener('keyup', e => keys[e.code] = false);
+const tap = (id, fn) => $(id).addEventListener('touchstart', e => { e.preventDefault(); e.stopPropagation(); if (state === 'play' && !paused) fn(); }, { passive: false });
+tap('bE', doInteract); tap('bC', toggleCrouch); tap('bF', toggleFlash); tap('bG', throwAlarm);
+tap('bR', () => { player.run = !player.run; $('bR').classList.toggle('on', player.run); });
+let joyId = null, joyO = null, lookId = null, lookLast = null, lookStart = null;
+const cv = renderer.domElement;
+cv.addEventListener('touchstart', e => { e.preventDefault(); for (const t of e.changedTouches) {
+  if (t.clientX < innerWidth * .4 && joyId === null) { joyId = t.identifier; joyO = [t.clientX, t.clientY]; }
+  else if (lookId === null) { lookId = t.identifier; lookLast = [t.clientX, t.clientY]; lookStart = { x: t.clientX, y: t.clientY, t: performance.now() }; } } }, { passive: false });
+cv.addEventListener('touchmove', e => { e.preventDefault(); for (const t of e.changedTouches) {
+  if (t.identifier === joyId) { let dx = t.clientX - joyO[0], dy = t.clientY - joyO[1]; const l = Math.hypot(dx, dy), mx = 55; if (l > mx) { dx *= mx / l; dy *= mx / l; } joy = { x: dx / mx, y: dy / mx }; $('knob').style.transform = `translate(${dx}px,${dy}px)`; }
+  if (t.identifier === lookId) { player.yaw -= (t.clientX - lookLast[0]) * .006; player.pitch = Math.max(-1.4, Math.min(1.4, player.pitch - (t.clientY - lookLast[1]) * .006)); lookLast = [t.clientX, t.clientY]; } } }, { passive: false });
+cv.addEventListener('touchend', e => { for (const t of e.changedTouches) {
+  if (t.identifier === joyId) { joyId = null; joy = { x: 0, y: 0 }; $('knob').style.transform = ''; }
+  if (t.identifier === lookId) { lookId = null; if (performance.now() - lookStart.t < 250 && Math.hypot(t.clientX - lookStart.x, t.clientY - lookStart.y) < 12) doInteract(); } } });
+
+// ================= LOOP =================
+const fwdXZ = () => [-Math.sin(player.yaw), -Math.cos(player.yaw)];
+let target = null;
+const clock = new THREE.Clock();
+function tick() {
+  requestAnimationFrame(tick);
+  const dt = Math.min(clock.getDelta(), .05), t = performance.now() / 1000;
+  doors.forEach(d => { const near = parents.some(p => Math.hypot(p.x - d.x, p.z - d.z) < 1.8); const want = d.open || near ? -Math.PI / 2 : 0; d.ang += (want - d.ang) * Math.min(1, dt * 6); d.pivot.rotation.y = d.ang; if (!d.open) d.col.off = near && false; });
+  const dadTV = parents[1].phase === 'do' && parents[1].idx === 0 && !parents[1].asleep;
+  tvScreen.material.emissiveIntensity = dadTV ? .6 + Math.random() * .5 : .05; tvLight.intensity = dadTV ? 1.5 + Math.random() : 0;
+  if (state === 'play' && !paused) {
+    // movement
+    let ix = joy.x, iz = joy.y;
+    if (keys.KeyW || keys.ArrowUp) iz -= 1; if (keys.KeyS || keys.ArrowDown) iz += 1; if (keys.KeyA || keys.ArrowLeft) ix -= 1; if (keys.KeyD || keys.ArrowRight) ix += 1;
+    const il = Math.hypot(ix, iz); if (il > 1) { ix /= il; iz /= il; }
+    const running = (keys.ShiftLeft || keys.ShiftRight || player.run) && !player.crouch;
+    const spd = player.crouch ? 1.3 : running ? 4.4 : 2.5;
+    const [fx, fz] = fwdXZ(), rx = -fz, rz = fx;
+    const vx = (fx * -iz + rx * ix) * spd, vz = (fz * -iz + rz * ix) * spd;
+    if (!blocked(player.x + vx * dt, player.z)) player.x += vx * dt;
+    if (!blocked(player.x, player.z + vz * dt)) player.z += vz * dt;
+    const moving = Math.hypot(vx, vz) > .2;
+    player.eye += ((player.crouch ? 1.0 : 1.6) - player.eye) * Math.min(1, dt * 10);
+    const bob = moving ? Math.sin(t * (running ? 14 : 9)) * (running ? .05 : .025) : 0;
+    camera.position.set(player.x, player.eye + bob, player.z); camera.rotation.set(player.pitch, player.yaw, 0);
+    // parents
+    const noise = !moving ? 0 : player.crouch ? 0 : running ? 8 : 2.8;
+    let maxS = 0;
+    for (const p of parents) {
+      updateParent(p, dt);
+      if (!p.asleep) {
+        const dx = player.x - p.x, dz = player.z - p.z, d = Math.hypot(dx, dz);
+        if (d < 1.0) lose(`${p.id === 'mom' ? 'Мама' : 'Папа'} врезался прямо в тебя.`);
+        const a = p.acts[p.idx], att = p.phase === 'do' ? a.att : 1;
+        const range = 10 * att * (player.crouch ? .6 : 1) * (inKidRoom() && p.phase === 'do' ? .5 : 1);
+        const fwd = [Math.sin(p.h), Math.cos(p.h)], cos = (dx * fwd[0] + dz * fwd[1]) / (d || 1);
+        const sees = d < range && cos > Math.cos(1.0) && los(p.x, p.z, player.x, player.z, true);
+        if (sees) { p.susp += dt * (.5 + 1.8 * (1 - d / range)); if (p.susp > .35) investigate(p, player.x, player.z); }
+        else { p.susp = Math.max(0, p.susp - dt * .2); if (noise && d < noise * (los(p.x, p.z, player.x, player.z, true) ? 1 : .6)) investigate(p, player.x, player.z, running ? 'Тебя услышали!' : null); }
+        if (p.susp >= 1) lose(`${p.id === 'mom' ? 'Мама' : 'Папа'} тебя заметил${p.id === 'mom' ? 'а' : ''}. Обратно в комнату!`);
+        maxS = Math.max(maxS, p.susp);
+      }
+      animParent(p, dt);
+    }
+    updateAlarm(dt);
+    // interact target
+    target = null; let bd = 2.5;
+    for (const o of inter) { const dx = o.x - player.x, dz = o.z - player.z, d = Math.hypot(dx, dz); if (d > bd) continue; const c = (dx * fx + dz * fz) / (d || 1); if (d > .9 && c < .5) continue; if (!o.label()) continue; bd = d; target = o; }
+    $('prompt').style.display = target ? 'block' : 'none'; if (target) $('prompt').textContent = target.label();
+    // HUD
+    $('status').innerHTML = parents.map(p => `${p.name}: ${p.asleep ? 'спит 💤' : p.phase === 'investigate' || p.phase === 'look' ? '<b style="color:#f66">что-то ищет!</b>' : p.phase === 'walk' ? 'идёт: ' + p.acts[p.idx].label : p.acts[p.idx].label}`).join('<br>')
+      + `<br>Подозрение<div id="susp"><div style="width:${maxS * 100}%"></div></div>${player.crouch ? '🦶 крадёшься' : running ? '🏃 бежишь (шумно)' : ''}${flashOn ? ' 🔦' : ''}`;
+    if (msgT > 0) { msgT -= dt; if (msgT <= 0) $('msg').style.opacity = 0; }
+    inter.forEach(o => { if (o.mesh) o.mesh.rotation.y += dt; });
+  } else if (state === 'menu') {
+    camera.position.set(12 + Math.sin(t * .1) * 14, 9, 26 + Math.cos(t * .1) * 4); camera.lookAt(12, 1, 8);
+    for (const p of parents) { updateParent(p, dt); animParent(p, dt); }
+  }
+  renderer.render(scene, camera);
+}
+startAct(parents[0]); parents[0].x = 16; parents[0].z = 10.2; parents[0].phase = 'do'; parents[0].timer = 24; parents[0].path = [];
+drawInv(); tick();
+</script>
+</body>
+</html>
